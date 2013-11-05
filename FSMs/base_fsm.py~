@@ -90,7 +90,7 @@ class BaseFSM():
         matching_list = []
         
         flows = self.get_flows(state)
-        print flows
+
         for flow in flows:
             match_str = 'match('
             flow_map = eval(flow)

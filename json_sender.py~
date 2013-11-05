@@ -149,8 +149,6 @@ def main():
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     # Connect to server
-    print 'JSON MESSAGE'
-    print json_message
     s.connect((options.addr, int(options.port)))
     bufsize = len(json_message)
 

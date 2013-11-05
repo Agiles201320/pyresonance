@@ -83,7 +83,7 @@ class IDSPolicy(BasePolicy):
 
             # Create state policies for each state
             p1 = if_(match_infected_flows, self.infected_policy(), drop)
-            p2 = if_(match_clean_flows, self.allow_policy(), drop)
+            p2 = if_(match_clean_flows, self.allow_policy(), passthrough)
 
             # Parallel composition 
             return p1 + p2

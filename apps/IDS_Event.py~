@@ -1,0 +1,164 @@
+
+################################################################################
+# The Pyretic Project                                                          #
+# frenetic-lang.org/pyretic                                                    #
+# author: Joshua Reich (jreich@cs.princeton.edu)                               #
+################################################################################
+# Licensed to the Pyretic Project by one or more contributors. See the         #
+# NOTICES file distributed with this work for additional information           #
+# regarding copyright and ownership. The Pyretic Project licenses this         #
+# file to you under the following license.                                     #
+#                                                                              #
+# Redistribution and use in source and binary forms, with or without           #
+# modification, are permitted provided the following conditions are met:       #
+# - Redistributions of source code must retain the above copyright             #
+#   notice, this list of conditions and the following disclaimer.              #
+# - Redistributions in binary form must reproduce the above copyright          #
+#   notice, this list of conditions and the following disclaimer in            #
+#   the documentation or other materials provided with the distribution.       #
+# - The names of the copyright holds and contributors may not be used to       #
+#   endorse or promote products derived from this work without specific        #
+#   prior written permission.                                                  #
+#                                                                              #
+# Unless required by applicable law or agreed to in writing, software          #
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT    #
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the     #
+# LICENSE file distributed with this work for specific language governing      #
+# permissions and limitations under the License.                               #
+################################################################################
+
+################################################################################
+# SETUP                                                                        #
+# -------------------------------------------------------------------          #
+# mininet: mininet.sh (or other single subnet network)                         #
+# test:    packet contents will be printed for each packet sent                #
+#          to generate a packets with a payload try                            #
+#          h1 hping3 -c 10 -d 100 -E ~/pyretic/mininet/test_payload.txt -S h2  #
+################################################################################
+
+from pyretic.lib.corelib import *
+from pyretic.lib.std import *
+import socket
+import json
+import re
+
+def filtro(self,pkt):
+  self.src_ip = pkt['srcip']
+  self.src_mac = pkt['srcmac']
+  self.dst_ip = pkt['dstip']
+  self.dst_mac = pkt['dstmac']
+  self.ethtype = pkt['ethtype']
+  self.encabezado = pkt['header_len']
+  self.payload = pkt['payload_len']
+  self.contenido_tcp = None
+  self.contenido_udp = None
+
+  if pkt['ethtype'] == 0x800:
+    self.raw_bytes = [ord(c) for c in pkt['raw']]  
+    self.eth_payload_bytes = self.raw_bytes[pkt['header_len']:]
+    self.ip_version = (self.eth_payload_bytes[0] & 0b11110000) >> 4
+    self.ihl = (self.eth_payload_bytes[0] & 0b00001111)
+    self.ip_header_len = self.ihl * 4
+    self.ip_payload_bytes = self.eth_payload_bytes[self.ip_header_len:]
+    self.ip_proto = self.eth_payload_bytes[9]
+
+    if self.ip_proto == 0x06:
+      self.tcp_data_offset = (self.ip_payload_bytes[12] & 0b11110000) >> 4
+      self.tcp_header_len = self.tcp_data_offset * 4
+      self.tcp_payload_bytes = self.ip_payload_bytes[self.tcp_header_len:]
+
+	if len(self.tcp_payload_bytes) > 0:
+	  self.contenido_tcp = ''.join([chr(d) for d in self.tcp_payload_bytes])
+
+    elif self.ip_proto == 0x11:
+      self.udp_header_len = 8
+      self.udp_payload_bytes = self.ip_payload_bytes[self.udp_header_len:]
+
+      if len(self.udp_payload_bytes) > 0:
+	self.contenido_udp = ''.join([chr(d) for d in self.udp_payload_bytes])
+
+    elif self.ip_proto == 0x01:
+      print "ICMP packet"
+
+    else:
+      print "Unhandled packet type"
+      
+  print 'src_ip: ' + str(self.src_ip)
+  print 'src_mac: ' + str(self.src_mac)
+  print 'dst_ip: ' + str(self.dst_ip)
+  print 'dst_mac: ' + str(self.dst_mac)
+  print 'ethtype: ' + str(self.ethtype)
+  print 'encabezado: ' + str(self.encabezado)
+  print 'payload: ' + str(self.payload)
+    
+  if self.contenido_tcp != None:
+    print 'contenido tcp: ' + self.contenido_tcp
+    
+  def analisis():
+    #Deteccion de un escaneo por ping con nmap
+    #Caracteristicas del paquete: ethtype = 2048, header_len = 14, payload_len = 40, protocol = 6,
+    #tcp_header_len = 20, tcp payload = 0
+    generar_evento()
+    enviar_evento()
+
+  def generar_evento():
+    # Se construye el payload del evento
+    self.message_payload= dict(inport=None,    \
+			  srcmac=src_mac, \
+			  dstmac=None,    \
+			  srcip=src_ip,   \
+			  dstip=None,     \
+			  tos=None,       \
+			  srcport=None,   \
+			  dstport=None,   \
+			  ethtype=None,   \
+			  protocol=None,  \
+			  vlan_id=None,   \
+			  vlan_pcp=None)  \
+	
+  def enviar_evento():
+    # Se define el valor del estado al cual va a pasar el host atacado
+    self.message_value = 'infected'
+      
+    # Se define que el mensaje corresponde a un estado del evento IDS
+    self.message_type = MESSAGE_TYPES['state']
+      
+    # Se construye el mensaje JSON para ser enviado
+    self.json_message = dict(event=dict(event_type='ids',                             \
+				  sender=dict(sender_id=1,                      \
+						description=1,                    \
+						addraddr='127.0.0.1',               \
+					      port='50002'),                      \
+				  message=dict(message_type=self.message_type,       \
+					      message_payload=self.message_payload,  \
+					      message_value=self.message_value),     \
+				  transition=dict(prev=1,                       \
+					      next=1)                           \
+				  ))
+				    
+    # Se crea el socket a traves del cual se va a enviar el mensaje JSON
+    self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+    # Se conecta con el servidor para enviar el mensaje
+    self.s.connect(('127.0.0.1', 50002))
+    self.bufsize = len(self.json_message)
+
+    # Se envian los datos
+    self.totalsent = 0
+    self.s.sendall(json.dumps(self.json_message))
+
+    # Receive return value
+    self.recvdata = self.s.recv(1024)
+    print self.recvdata
+
+    # Se cierra el socket
+    self.s.close()
+
+def capturar_paquetes():
+  q = packets()
+  q.register_callback(filtro)
+  return q
+
+### Main ###
+def main():
+  return capturar_paquetes()

@@ -1,0 +1,18 @@
+Para poder ejecutar correctamente tanto el generador de eventos IDS como la aplicacion IDS de PyResonance se deben seguir los siguientes pasos:
+
+Configuracion del ambiente
+
+1 - Pegar el archivo ids_event.py en la carpeta /home/mininet/pyretic/pyretic/modules
+2 - Revisar que el archivo main.py de la carpeta /home/mininet/pyretic/pyretic/pyresonance incluya en su ultima linea la sentencia " + ids_event() " a fin que el modulo ids_event se ejecute con
+	PyResonance
+3 - Pegar los archivos mininet.sh y pyresonance.sh en la carpeta /home/mininet/pyretic
+4 - Incluir en el archivo global.config de la carpeta /home/mininet/pyretic/pyretic/pyresonance las lineas de " pyretic.pyresonance.apps.ids, " en la secion de applications y la linea " ids " en la seccion
+	de composition
+
+
+Ejecucion del ambiente
+
+1 - Abrir dos lineas de comando y ubicarlas en la ruta /home/mininet/pyretic. Para ello puede abrir el explorador, llegar hasta la ruta indicada y opriminir F4 o bien puede utilizar el comando   cd <<carpeta>>
+	para especificar la carpeta a la cual desea navegar.
+2 - Una vez ubicado en la ruta mencionada debe ejecutar el comando mininet.sh en una de las consolas y luego ejecutar el comando pyresonance.sh en la otra consola.
+3 - Para validar que se ha desplegado correctamente el controlador de PyResonance en pantalla debe aparecerle la frase: "OpenFlow switch 1 connected"
